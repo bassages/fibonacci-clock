@@ -17,6 +17,12 @@ legend {
 .select {
   width: 100%;
 }
+.text {
+  width: 100%;
+}
+.datetime-local {
+  width: 100%;
+}
 .slider { 
   width: 100%;
 }

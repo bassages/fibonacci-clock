@@ -14,7 +14,7 @@ void loadConfiguration(const char *filename, Config &config) {
   
   config.wifiSsid = doc["wifiSsid"] | "default";
   config.wifiPassword = doc["wifiPassword"] | "default";
-  config.mode = doc["mode"] | 0;
+  config.pixelMode = doc["pixelMode"] | 0;
   config.brightness = doc["brightness"] | 127;
   config.clockPalette = doc["palette"] | 0;
   config.lampColorHex = doc["lampColorHex"] | "#FFFF00";
@@ -37,7 +37,7 @@ void loadConfiguration(const char *filename, Config &config) {
   config.buzzerHalfHour = doc["buzzerHalfHour"] | true;
   config.buzzerHour = doc["buzzerHour"] | 1;
   config.timezoneLocation = doc["timezoneLocation"] | "Europe/Amsterdam";
-  
+  config.connectionMode = doc["connectionMode"] | CONNECTION_MODE_STA;
   file.close();
   printConfig();
 }
@@ -60,9 +60,10 @@ boolean saveConfiguration(const char *filename, const Config &config) {
 
   doc["wifiSsid"] = config.wifiSsid;
   doc["wifiPassword"] = config.wifiPassword;
-  doc["palette"] = config.clockPalette;
+  doc["connectionMode"] = config.connectionMode;
   doc["brightness"] = config.brightness;
-  doc["mode"] = config.mode;
+  doc["pixelMode"] = config.pixelMode;
+  doc["palette"] = config.clockPalette;
   doc["lampColorR"] = config.lampColorR;
   doc["lampColorG"] = config.lampColorG;
   doc["lampColorB"] = config.lampColorB;
@@ -103,11 +104,14 @@ void printConfig() {
   Serial.print("brightness: ");
   Serial.println(config.brightness);
 
+  Serial.print("connectionMode: ");
+  Serial.println(config.connectionMode);
+
+  Serial.print("pixelMode: ");
+  Serial.println(config.pixelMode);
+
   Serial.print("clockPalette: ");
   Serial.println(config.clockPalette);
-
-  Serial.print("mode: ");
-  Serial.println(config.mode);
   
   Serial.print("lampColor (R,G,B / hex): ");
   Serial.print(config.lampColorR);

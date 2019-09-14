@@ -23,8 +23,12 @@ FASTLED_USING_NAMESPACE
 #define BUZZER_HOUR_TYPE_COUNTDOWN_TO_HOUR 1
 #define BUZZER_HOUR_TYPE_CUCKOO 2
 
-struct Config {  
-  byte mode;
+#define CONNECTION_MODE_AP 0
+#define CONNECTION_MODE_STA 1
+
+struct Config {
+  byte connectionMode;
+  byte pixelMode;
   byte brightness; // Range 0-255
 
   String wifiSsid;
@@ -70,7 +74,7 @@ const char* host = "fibonacci-clock";
 ESP8266WebServer webserver(80);
 
 // WiFi
-boolean connectedToNetwork = false;
+boolean connectedToWifiNetwork = false;
 WiFiEventHandler connectedEventHandler, gotIpEventHandler, disconnectedEventHandler;
 
 // -------------- Clock ---------------
@@ -159,37 +163,34 @@ void setup() {
     playStartupTune();  
   }
   
-  if (connectedToNetwork) {
-    setupDateTimeSync();
-  }
-
+  setupDateTimeSync();  
   Serial.println("Setup finished");
 }
 
 void loop() {
-  if (config.mode != 8) {
+  if (config.pixelMode != 8) {
     if (previousBrightness != config.brightness) {
       FastLED.setBrightness(config.brightness);
     }
   }
-  
-  if (config.mode == 0) {
+
+  if (config.pixelMode == 0) {
     loopClock();
-  } else if (config.mode == 1) {
+  } else if (config.pixelMode == 1) {
     loopLamp();
-   } else if (config.mode == 2) {
+   } else if (config.pixelMode == 2) {
     loopLampWithGlitter();
-  } else if (config.mode == 3) {
+  } else if (config.pixelMode == 3) {
     loopLampStrobo();
-  } else if (config.mode == 4) {
+  } else if (config.pixelMode == 4) {
     loopPixelStrobo();
-  } else if (config.mode == 5) {
+  } else if (config.pixelMode == 5) {
     loopLedStrobo();
-  } else if (config.mode == 6) {
+  } else if (config.pixelMode == 6) {
     loopRainbow();
-  } else if (config.mode == 7) {
+  } else if (config.pixelMode == 7) {
     loopRainbowWithGlitter();
-  } else if (config.mode == 8) {
+  } else if (config.pixelMode == 8) {
     loopGlow();    
   } else {
     loopOff();
@@ -200,7 +201,7 @@ void loop() {
 }
 
 void loopClock() {
-  if (!connectedToNetwork) {
+  if (!connectedToWifiNetwork && config.connectionMode == CONNECTION_MODE_STA) {
     return;
   }
   events(); // Process date/time events
@@ -214,7 +215,13 @@ void loopClock() {
     Serial.print(":");
     Serial.print(currentMinute);
     Serial.print(":");
-    Serial.println(currentSeconds);
+    Serial.print(currentSeconds);
+    Serial.print(" ");
+    Serial.print(dateAndTime.day());
+    Serial.print("-");
+    Serial.print(dateAndTime.month());
+    Serial.print("-");
+    Serial.println(dateAndTime.year());
     
     if ((oldHours != currentHour || oldMinutes/5 != currentMinute/5) || forceRefresh) {
       forceRefresh = false;
@@ -235,8 +242,10 @@ void loopClock() {
         || (oldMinutes == 47 && currentMinute == 48)
         || (oldMinutes == 57 && currentMinute == 58)) {
 
-      Serial.println("Update NTP");
-      updateNTP();
+      if (connectedToWifiNetwork) {
+        Serial.println("Update NTP");
+        updateNTP();
+      }
     }
 
     oldHours = currentHour;
@@ -351,6 +360,8 @@ void setupLeds() {
   FastLED.addLeds<LED_TYPE,LED_DATA_PIN,LED_COLOR_ORDER>(leds, NUMBER_OF_LEDS).setCorrection(TypicalLEDStrip);
   // set LED master brightness control
   FastLED.setBrightness(config.brightness);
+  setAllPixels(CRGB::Black);
+  FastLED.show();  
 }
 
 void setupDateTimeSync() {
@@ -358,13 +369,19 @@ void setupDateTimeSync() {
   // These defaults should work for most people, but you can change them by specifying a new server with setServer 
   // or a new interval (in seconds) with setInterval. 
   // If you call setInterval with an interval of 0 seconds or call it as setInterval(), no more NTP queries will be made.
+
   setInterval(); // We'll sync manually, see main loop
-  updateNTP();
-  waitForSync();
-  boolean succes = dateAndTime.setLocation(config.timezoneLocation);
-  if (!succes) {
-    // Panic!
-  }
+  dateAndTime.setLocation(config.timezoneLocation);
+
+  if (config.connectionMode == CONNECTION_MODE_AP) {
+    Serial.println("Setting fixed time and date");
+    setTime(0, 0, 0, 1, 1, 2000);
+    
+  } else if (connectedToWifiNetwork) {
+    Serial.println("Syncing time and date from NTP");
+    updateNTP();
+    waitForSync();
+  }  
 }
 
 int previousRandomLed = 0;
@@ -441,41 +458,49 @@ void setPixel(byte pixel, CRGB color) {
   };
 }
 
-void onConnected(const WiFiEventStationModeConnected& event) {
+void onStationModeConnected(const WiFiEventStationModeConnected& event) {
   Serial.println("Connected to accesspoint, wating for ip");
 }
 
-void onGotIP(const WiFiEventStationModeGotIP& event) {
+void onStationModeGotIP(const WiFiEventStationModeGotIP& event) {
   Serial.print("Sucessfully obtained ip from ");
   Serial.println(WiFi.SSID());
   Serial.print("local-ip: ");
   Serial.println(WiFi.localIP());  
 
   startWebserver();
-  connectedToNetwork = true;
+  connectedToWifiNetwork = true;
 }
 
-void onDisconnect(const WiFiEventStationModeDisconnected& event) {
+void onStationModeDisconnected(const WiFiEventStationModeDisconnected& event) {
   Serial.println("Lost WiFi connection!");
-  connectedToNetwork = false;
+  connectedToWifiNetwork = false;
   // TODO: reconnect / error mode / ...
 }
  
 void setupNetwork() {
-  gotIpEventHandler = WiFi.onStationModeGotIP(onGotIP);
-  disconnectedEventHandler = WiFi.onStationModeDisconnected(onDisconnect);
-  connectedEventHandler = WiFi.onStationModeConnected(onConnected);
-  
-  connectToWifi();
-  
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("Failed to connect to WiFi. Go into AccessPoint mode");
+  connectedEventHandler = WiFi.onStationModeConnected(onStationModeConnected);
+  disconnectedEventHandler = WiFi.onStationModeDisconnected(onStationModeDisconnected);
+  gotIpEventHandler = WiFi.onStationModeGotIP(onStationModeGotIP);
+
+  if (config.connectionMode == CONNECTION_MODE_STA) {
+    connectToWifi();
+    if (WiFi.status() != WL_CONNECTED) {
+      Serial.println("Failed to connect in STA mode. Switch to AP mode");
+
+      config.connectionMode = CONNECTION_MODE_AP;
+      saveConfiguration(configFileFullPath, config);
+      
+      setAllPixels(CRGB::Black);
+      FastLED.show();
+      
+      setupAccessPoint();
+    }
+  } else {
     setupAccessPoint();
-    startCaptivePortalWebserver();
-    setAllPixels(CRGB::Blue);
-    FastLED.show();
   }
-  
+  startWebserver();
+    
   Serial.print("host: ");
   Serial.println(host);
 }
@@ -484,10 +509,14 @@ void setupAccessPoint() {
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(accesspointIp, accesspointIp, IPAddress(255, 255, 255, 0));
 
-  // Please note that when the password is too short (less than 8 characters) the WiFi.softAP(ssid, password) function doesn't work. There is no warning during compilation.
+  // Please note that when the password is too short (less than 8 characters) the WiFi.softAP(ssid, password) function doesn't work. 
+  // There is no warning during compilation for this.
   const char* accesspointPassword = "12345678";
-  // TODO: In case of multiple clocks: add chip-id to be unique
-  const char* accesspointSsid = "fibonacci-clock";
+
+  Serial.println();
+
+  String ssid = "fibonacci-clock-" + String(ESP.getChipId());
+  const char* accesspointSsid = ssid.c_str();
   
   boolean result = WiFi.softAP(accesspointSsid, accesspointPassword);
   result ? Serial.println("AccessPoint ready") : Serial.println("Failed to start AccessPoint");
@@ -496,10 +525,10 @@ void setupAccessPoint() {
   const byte dnsPort = 53;
   dnsServer.start(dnsPort, "*", accesspointIp);
 
-  Serial.print("accesspoint-Ssid: ");
+  Serial.print("Accesspoint SSID: ");
   Serial.println(accesspointSsid);
 
-  Serial.print("accesspoint-ip: ");
+  Serial.print("Accesspoint IP: ");
   Serial.println(WiFi.softAPIP());
 }
 
@@ -520,17 +549,11 @@ void connectToWifi() {
 
 void startWebserver() {
   webserver.on("/", processRootRequest);
-  webserver.on("/wifi", processWifiSettingsRequest);
+  webserver.on("/connection", processConnectionSettingsRequest);
   webserver.on("/settings", processSettingsRequest);
   webserver.onNotFound(handleNotFound);
   webserver.begin();
   Serial.println("Webserver started");
-}
-
-void startCaptivePortalWebserver() {
-  webserver.onNotFound(processWifiSettingsRequest);
-  webserver.begin();
-  Serial.println("CaptivePortalWebserver started");
 }
 
 void setupBuzzer() {

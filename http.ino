@@ -1,10 +1,6 @@
 void processRootRequest() {
   Serial.println("handleRoot");
-  if (connectedToNetwork) {
-    redirect("/settings");
-  } else {
-    redirect("/wifi");
-  }
+  redirect("/settings");
 }
 
 void redirect(String toUrl) {
@@ -21,7 +17,7 @@ void processSettingsRequest() {
 }
 
 void postSettings() {
-  String modeParam = getTrimmedWebserverArgument("mode");
+  String pixelModeParam = getTrimmedWebserverArgument("pixelMode");
   String clockPaletteParam = getTrimmedWebserverArgument("clockPalette");
   String brightnessParam = getTrimmedWebserverArgument("brightness");
   String lampColorHexParam = getTrimmedWebserverArgument("lampColorHex");
@@ -50,7 +46,7 @@ void postSettings() {
   long long glowG = glowColorNumber >> 8 & 0xFF;
   long long glowB = glowColorNumber & 0xFF;
 
-  config.mode = modeParam.toInt();
+  config.pixelMode = pixelModeParam.toInt();
   config.brightness = brightnessParam.toInt();
   config.clockPalette = clockPaletteParam.toInt();
   config.lampColorHex = lampColorHexParam;
@@ -73,7 +69,25 @@ void postSettings() {
   config.buzzerHalfHour = buzzerHalfHourParam.length() > 0 ? true : false;
   config.buzzerHour = buzzerHourParam.toInt();
 
+  String setDateTimeParam = getTrimmedWebserverArgument("setDateTime");
+  
   saveConfiguration(configFileFullPath, config);
+
+  if (setDateTimeParam.length() > 0) {
+      String dateTime = getTrimmedWebserverArgument("dateTime");
+
+      Serial.print("setDateTime: ");
+      Serial.println(dateTime);
+
+      int year = dateTime.substring(0,4).toInt();
+      int month = dateTime.substring(5,7).toInt();
+      int day = dateTime.substring(8,10).toInt();
+      int hour = dateTime.substring(11,13).toInt();
+      int minute = dateTime.substring(14,16).toInt();
+
+      setTime(hour, minute, 0, day, month, year);
+  }
+
   forceRefresh = true;
   redirect("/settings");
 }
@@ -114,19 +128,23 @@ void getSettings() {
                 "      function setVisibility(id, visible) {\n"
                 "        visible ? document.getElementById(id).style.display = '' : document.getElementById(id).style.display = 'none';\n"
                 "      }\n"
-                "      function setVisibilityBasedOnMode() {\n"
-                "        var mode = document.getElementById('mode').selectedIndex;\n"
-                "        setVisibility('clockPaletteSetting', mode == 0);\n"
-                "        setVisibility('clockPaletteLegend', mode == 0);\n"
-                "        setVisibility('lampColorHexSetting', mode == 1 || mode == 2);\n"
-                "        setVisibility('stroboColorHexSetting', mode == 3 || mode == 4 || mode == 5);\n"
-                "        setVisibility('stroboSpeedSetting', mode == 3 || mode == 4 || mode == 5);\n"
-                "        setVisibility('glowColorHexSetting', mode == 8);\n"
-                "        setVisibility('glowSpeedSetting', mode == 8);\n"
-                "        setVisibility('buzzerSecondSetting', mode == 0);\n"
-                "        setVisibility('buzzerSecondFrequencySetting', mode == 0);\n"
-                "        setVisibility('buzzerHalfHourSetting', mode == 0);\n"
-                "        setVisibility('buzzerHourSetting', mode == 0);\n"
+                "      function setVisibilityBasedOnModes() {\n"
+                "        var connectionMode = document.getElementById('connectionMode').selectedIndex;\n"
+                "        var pixelMode = document.getElementById('pixelMode').selectedIndex;\n"
+                "        setVisibility('clockPaletteSetting', pixelMode == 0);\n"
+                "        setVisibility('clockDateTimeSetting', pixelMode == 0 && connectionMode == 0);\n"
+                "        setVisibility('clockPaletteLegend', pixelMode == 0);\n"
+                "        setVisibility('lampColorHexSetting', pixelMode == 1 || pixelMode == 2);\n"
+                "        setVisibility('stroboColorHexSetting', pixelMode == 3 || pixelMode == 4 || pixelMode == 5);\n"
+                "        setVisibility('stroboSpeedSetting', pixelMode == 3 || pixelMode == 4 || pixelMode == 5);\n"
+                "        setVisibility('glowColorHexSetting', pixelMode == 8);\n"
+                "        setVisibility('glowSpeedSetting', pixelMode == 8);\n"
+                "        setVisibility('buzzerSecondSetting', pixelMode == 0);\n"
+                "        setVisibility('buzzerSecondFrequencySetting', pixelMode == 0);\n"
+                "        setVisibility('buzzerHalfHourSetting', pixelMode == 0);\n"
+                "        setVisibility('buzzerHourSetting', pixelMode == 0);\n"
+                "        setVisibility('ssidSetting', connectionMode == 1);\n"
+                "        setVisibility('passwordSetting', connectionMode == 1);\n"
                 "      }\n"
                 "      function setBackground(element, color) {\n"
                 "        document.getElementById(element).style.backgroundColor = color;\n"
@@ -136,7 +154,7 @@ void getSettings() {
                 "        setBackground('clockPaletteHours', hours);\n"
                 "        setBackground('clockPaletteMinutes', minutes);\n"
                 "        setBackground('clockPaletteHoursMinutes', both);\n"
-                "      }\n"
+                "      }\n"                
                 "      function setClockPaletteLegend() {\n"
                 "        var selectedPalette = document.getElementById('clockPalette').value;\n";
         for (int i = 0; i < NUMBER_OF_CLOCK_COLOR_PALETTES; i++) {
@@ -150,7 +168,7 @@ void getSettings() {
         }
         html += "      }\n"
                 "      function setup() {"
-                "        setVisibilityBasedOnMode();"
+                "        setVisibilityBasedOnModes();"
                 "        setClockPaletteLegend();"
                 "      }"
                 "      window.onload = setup;"
@@ -159,7 +177,8 @@ void getSettings() {
         html += "<body>"
                 "<div class='container'>"
                   "<img class='logo' src='logo.png' alt='Fibonacci' width='285'>"
-                  "<form action='settings' method='post'>"
+                  
+                    "<form action='settings' method='post'>"  
                     "<fieldset>"
                     "<legend>Light</legend>"
                     "<div>"
@@ -168,18 +187,24 @@ void getSettings() {
                       "<div>"
                       "<div class='control'>"
                         "<label>Mode:</label>"
-                        "<select id='mode' name='mode' class='select' onchange='setVisibilityBasedOnMode()'>"
-                          "<option value='0'" + selected(0, config.mode) + ">Clock</option>"
-                          "<option value='1'" + selected(1, config.mode) + ">Lamp</option>"
-                          "<option value='2'" + selected(2, config.mode) + ">Lamp with glitter</option>"
-                          "<option value='3'" + selected(3, config.mode) + ">Strobo</option>"
-                          "<option value='4'" + selected(4, config.mode) + ">Strobo (random pixel)</option>"
-                          "<option value='5'" + selected(5, config.mode) + ">Strobo (random led)</option>"
-                          "<option value='6'" + selected(6, config.mode) + ">Rainbow</option>"
-                          "<option value='7'" + selected(7, config.mode) + ">Rainbow with glitter</option>"
-                          "<option value='8'" + selected(8, config.mode) + ">Glow</option>"
+                        "<select id='pixelMode' name='pixelMode' class='select' onchange='setVisibilityBasedOnModes()'>"
+                          "<option value='0'" + selected(0, config.pixelMode) + ">Clock</option>"
+                          "<option value='1'" + selected(1, config.pixelMode) + ">Lamp</option>"
+                          "<option value='2'" + selected(2, config.pixelMode) + ">Lamp with glitter</option>"
+                          "<option value='3'" + selected(3, config.pixelMode) + ">Strobo</option>"
+                          "<option value='4'" + selected(4, config.pixelMode) + ">Strobo (random pixel)</option>"
+                          "<option value='5'" + selected(5, config.pixelMode) + ">Strobo (random led)</option>"
+                          "<option value='6'" + selected(6, config.pixelMode) + ">Rainbow</option>"
+                          "<option value='7'" + selected(7, config.pixelMode) + ">Rainbow with glitter</option>"
+                          "<option value='8'" + selected(8, config.pixelMode) + ">Glow</option>"
                         "</select>"
                       "</div>"
+
+                      "<div class='control' id='clockDateTimeSetting' style='display:none'>"
+                        "<input name='setDateTime' type='checkbox'> change date/time to:"
+                        "<input type='datetime-local' class='datetime-local' name='dateTime' value='" + dateTime("Y-m-d") + "T" + dateTime("H:i")  + "'>"
+                      "</div>"
+
                       "<div class='control' id='clockPaletteSetting' style='display:none'>"
                         "<label>Colorscheme:</label>"
                         "<select id='clockPalette' name='clockPalette' class='select' onchange='setClockPaletteLegend()'>"
@@ -253,10 +278,36 @@ void getSettings() {
                         "<input class='button' type='submit' value='Save and apply'>"
                       "</div>"
                   "</form>"
+                  
+                  "<br/>"
+                  
+                  "<form action='connection' method='post'>"
+                    "<fieldset>"
+                    "<legend>Connection</legend>"
+                    "<div>"
+                        "<select id='connectionMode' name='connectionMode' class='select' onchange='setVisibilityBasedOnModes()'>"
+                          "<option value='0'" + selected(0, config.connectionMode) + ">Access Point (AP)</option>"
+                          "<option value='1'" + selected(1, config.connectionMode) + ">Station (STA)</option>"
+                        "</select>"
+                    "</div>"
+                    "<div class='control' id='ssidSetting' style='display:none'>"
+                      "<label>SSID:</label>"
+                      "<input type='text' class='text' id='ssid' name='ssid' size='30' maxlength='50' value='" + config.wifiSsid + "'>"
+                    "</div>"
+                    "<div class='control' id='passwordSetting' style='display:none'>"
+                      "<label>Password:</label>"
+                      "<input type='password' class='text' id='password' name='password' size='30' maxlength='50' value='" + config.wifiPassword + "'>"
+                    "</div>"
+                    "<div class='control' align='right'>"
+                      "<input class='button' type='submit' value='Save and apply'>"
+                    "</div>"
+                    "</fieldset>"
+                    "</form>"
+                    
                 "</div>"
                 "</body>"
                 "</html>";
-        
+
     webserver.send(200, "text/html", html);
 }
 
@@ -268,72 +319,49 @@ String checked(boolean value) {
   return value ? " checked" : "";
 }
 
-void processWifiSettingsRequest() {
+void processConnectionSettingsRequest() {
   if (webserver.method() == HTTP_GET) {
-     getWifiSettings();
+     getSettings();
   } else if (webserver.method() == HTTP_POST) {
-    postWifiSettings();
+    postConnectionSettings();
   }
 }
 
-void postWifiSettings() {  
-  Serial.println("Post WiFi settings");
+void postConnectionSettings() {  
+  Serial.println("Post connection settings");
+
+  byte connectionMode = getTrimmedWebserverArgument("connectionMode").toInt();
+  boolean connectionModeChanged = config.connectionMode != connectionMode;
   
   String ssidParam = getTrimmedWebserverArgument("ssid");
   String passwordParam = getTrimmedWebserverArgument("password");
 
-  Serial.println(ssidParam);
-  Serial.println(passwordParam);
-
-  if (ssidParam.length() == 0) {
-    webserver.send(400, "text/html", "Failed to save configuration: ssid is mandatory");
-    return;
-  } else if (passwordParam.length() == 0) {
-    webserver.send(400, "text/html", "Failed to save configuration: password is mandatory");
-    return;
+  if (connectionMode == CONNECTION_MODE_STA) {
+    if (ssidParam.length() == 0) {
+      webserver.send(400, "text/html", "Failed to save configuration: ssid is mandatory for connectionMode STA");
+      return;
+    } else if (passwordParam.length() == 0) {
+      webserver.send(400, "text/html", "Failed to save configuration: password is mandatory for connectionMode STA");
+      return;
+    }    
   }
 
+  config.connectionMode = connectionMode;
   config.wifiSsid = ssidParam;
   config.wifiPassword = passwordParam;
-  
+
   bool successfullySaved = saveConfiguration(configFileFullPath, config);
   if (!successfullySaved) {
     webserver.send(500, "text/html", "Failed to save configuration");
     return;
   }
+  setAllPixels(CRGB::Black);
+  FastLED.show();
+
   ESP.restart();
 }
 
-void getWifiSettings() {
-  String html = "<!DOCTYPE html>"
-                "<html>"
-                "<head>"
-                "  <title>Fibonacci clock</title>"
-                "  <meta name='viewport' content='width=device-width, initial-scale=1'>"
-                "  <link rel='stylesheet' type='text/css' href='main.css'>"
-                "</head>"
-                "<body>"
-                "  <h2>WiFi configuration</h2>"
-                "  <p>Fibonacci clock needs a WiFi network connection, <br/>please provide the SSID and password of the network in the form below.</p>"
-                "  <form action='wifi' method='post'>"
-                "  <table>"
-                "    <tr>"
-                "      <td>SSID * </td><td><input type='text' name='ssid' size='30' maxlength='50' required></td>"
-                "    </tr>"
-                "    <tr>"
-                "      <td>Password * </td><td><input type='password' name='password' size='30' maxlength='50' required></td>"
-                "    </tr>"
-                "    <tr>"
-                "      <td colspan='2' align='right'><input type='submit' value='Save and (re)connect'></td>"
-                "    </tr>"
-                 "  </table>"
-                "</form>"
-                "</body>"
-                "</html>";
-  webserver.send(200, "text/html", html);
-}
-
-void handleNotFound(){
+void handleNotFound() {
   if (webserver.method() == HTTP_GET) {
     if (handleFileRead(webserver.uri())) {
       return;
@@ -372,6 +400,7 @@ bool handleFileRead(String path) {
 String getContentType(String filename){
   if(filename.endsWith(".htm")) return "text/html";
   else if(filename.endsWith(".html")) return "text/html";
+  else if(filename.endsWith(".js")) return "text/javascript";
   else if(filename.endsWith(".css")) return "text/css";
   else if(filename.endsWith(".png")) return "image/png";
   else if(filename.endsWith(".gif")) return "image/gif";
