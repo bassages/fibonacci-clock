@@ -25,6 +25,7 @@ void postSettings() {
   String stroboSpeedParam = getTrimmedWebserverArgument("stroboSpeed");
   String glowColorHexParam = getTrimmedWebserverArgument("glowColorHex");
   String glowSpeedParam = getTrimmedWebserverArgument("glowSpeed");
+  String rainbowSpeedParam = getTrimmedWebserverArgument("rainbowSpeed");
   String buzzerStartupParam = getTrimmedWebserverArgument("buzzerStartup");
   String buzzerSecondParam = getTrimmedWebserverArgument("buzzerSecond");
   String buzzerSecondFrequencyParam = getTrimmedWebserverArgument("buzzerSecondFrequency");
@@ -53,6 +54,7 @@ void postSettings() {
   config.lampColorR = lampR;
   config.lampColorG = lampG;
   config.lampColorB = lampB;
+  config.rainbowSpeed = rainbowSpeedParam.toInt();
   config.stroboColorHex = stroboColorHexParam;
   config.stroboColorR = stroboR;
   config.stroboColorG = stroboG;
@@ -137,6 +139,7 @@ void getSettings() {
                 "        setVisibility('lampColorHexSetting', pixelMode == 1 || pixelMode == 2);\n"
                 "        setVisibility('stroboColorHexSetting', pixelMode == 3 || pixelMode == 4 || pixelMode == 5);\n"
                 "        setVisibility('stroboSpeedSetting', pixelMode == 3 || pixelMode == 4 || pixelMode == 5);\n"
+                "        setVisibility('rainbowSpeedSetting', pixelMode == 6 || pixelMode == 7);\n"
                 "        setVisibility('glowColorHexSetting', pixelMode == 8);\n"
                 "        setVisibility('glowSpeedSetting', pixelMode == 8);\n"
                 "        setVisibility('buzzerSecondSetting', pixelMode == 0);\n"
@@ -228,6 +231,10 @@ void getSettings() {
                           "<div class='clockPaletteItem' id='clockPaletteHoursMinutes' title='Hours and minutes' style='background-color: white;'></div>"
                           "<div class='clockPaletteItem' id='clockPaletteOff' title='N/A' style='background-color: white;'></div>"
                         "</div>"
+                      "</div>"
+                      "<div class='control' id='rainbowSpeedSetting' style='display:none'>"
+                        "<label>Speed (fast &harr; slow):</label>"
+                        "<input class='slider' name='rainbowSpeed' type='range' min='1' max='2000' value='" + String(config.rainbowSpeed) + "'>"
                       "</div>"
                       "<div class='control' id='lampColorHexSetting' style='display:none'>"
                         "<label>Lamp color:</label>"

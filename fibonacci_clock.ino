@@ -36,6 +36,8 @@ struct Config {
 
   byte clockPalette;
   String timezoneLocation;
+
+  int rainbowSpeed;
   
   String lampColorHex;
   byte lampColorR;
@@ -187,9 +189,9 @@ void loop() {
   } else if (config.pixelMode == 5) {
     loopLedStrobo();
   } else if (config.pixelMode == 6) {
-    loopRainbow();
+    loopRainbow(false);
   } else if (config.pixelMode == 7) {
-    loopRainbowWithGlitter();
+    loopRainbow(true);
   } else if (config.pixelMode == 8) {
     loopGlow();    
   } else {
@@ -279,27 +281,36 @@ void loopLedStrobo() {
 void loopLamp() {
   setAllPixels(CRGB(config.lampColorR, config.lampColorG, config.lampColorB));
   FastLED.show();
-  FastLED.delay(10);
+  FastLED.delay(30);
 }
 
 void loopLampWithGlitter() {
-  for (int i=0; i<NUMBER_OF_PIXELS; i++) {
-    setPixel(i, CRGB(config.lampColorR, config.lampColorG, config.lampColorB));
-  }
+  setAllPixels(CRGB(config.lampColorR, config.lampColorG, config.lampColorB));
   addGlitter(80);
 
   FastLED.show();  
-  FastLED.delay(10); // insert a delay to keep the framerate modest
+  FastLED.delay(30); // insert a delay to keep the framerate modest
 }
 
-void loopRainbow() {
+void loopRainbow(boolean withGlitter) {
+  CRGB color[1];
+  
   // FastLED's built-in rainbow generator
-  fill_rainbow(leds, NUMBER_OF_LEDS, gHue, 7);
+  fill_rainbow(color, NUMBER_OF_PIXELS, gHue, 1);
+
+  setAllPixels(color[0]);
+  
+  if (withGlitter) {
+    addGlitter(80);
+  }
 
   FastLED.show();
-  FastLED.delay(10);
-  
-  EVERY_N_MILLISECONDS(20) { gHue++; } // slowly cycle the "base color" through the rainbow  
+  FastLED.delay(30); // Control speed of glitter
+
+  EVERY_N_MILLIS_I(thistimer, config.rainbowSpeed) { // Sets initial timing only. Changes here don't do anything
+    gHue++;
+  }
+  thistimer.setPeriod(config.rainbowSpeed);    
 }
 
 void loopGlow() {
@@ -322,20 +333,6 @@ void loopGlow() {
   setAllPixels(CRGB(config.glowColorR, config.glowColorG, config.glowColorB));
   FastLED.show();
   FastLED.delay(config.glowSpeed);
-}
-
-void loopRainbowWithGlitter() {
-    // FastLED's built-in rainbow generator
-  fill_rainbow(leds, NUMBER_OF_LEDS, gHue, 7);
-  // Plus some random sparkly glitter
-  addGlitter(80);
-
-  // send the 'leds' array out to the actual LED strip
-  FastLED.show();  
-  // insert a delay to keep the framerate modest
-  FastLED.delay(1000/120);
-  
-  EVERY_N_MILLISECONDS(20) { gHue++; } // slowly cycle the "base color" through the rainbow  
 }
 
 void addGlitter(fract8 chanceOfGlitter) {
@@ -558,13 +555,11 @@ void startWebserver() {
 
 void setupBuzzer() {
   pinMode(BUZZER_PIN, OUTPUT); 
-  digitalWrite(BUZZER_PIN, LOW);
+  setBuzzerOff();
 }
 
 void setAllPixels(CRGB color) {
-  for (int i=0; i<NUMBER_OF_PIXELS; i++) {
-    setPixel(i, color);
-  }
+  fill_solid(leds, NUMBER_OF_LEDS, color);
 }
 
 void setupFileSystem() {

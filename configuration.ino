@@ -17,6 +17,7 @@ void loadConfiguration(const char *filename, Config &config) {
   config.pixelMode = doc["pixelMode"] | 0;
   config.brightness = doc["brightness"] | 127;
   config.clockPalette = doc["palette"] | 0;
+  config.rainbowSpeed = doc["rainbowSpeed"] | 80;
   config.lampColorHex = doc["lampColorHex"] | "#FFFF00";
   config.lampColorR = doc["lampColorR"] | 255;
   config.lampColorG = doc["lampColorG"] | 255;
@@ -64,6 +65,7 @@ boolean saveConfiguration(const char *filename, const Config &config) {
   doc["brightness"] = config.brightness;
   doc["pixelMode"] = config.pixelMode;
   doc["palette"] = config.clockPalette;
+  doc["rainbowSpeed"] = config.rainbowSpeed;
   doc["lampColorR"] = config.lampColorR;
   doc["lampColorG"] = config.lampColorG;
   doc["lampColorB"] = config.lampColorB;
@@ -112,6 +114,9 @@ void printConfig() {
 
   Serial.print("clockPalette: ");
   Serial.println(config.clockPalette);
+
+  Serial.print("rainbowSpeed: ");
+  Serial.println(config.rainbowSpeed);
   
   Serial.print("lampColor (R,G,B / hex): ");
   Serial.print(config.lampColorR);

@@ -130,7 +130,7 @@ void beep(int frequency, int duration) {
   // noTone(...) (see statement above this comment) leaves the buzzer pin in LOW state.
   // This causes a somewhat "crackling" sound and makes the buzzer drawing current while not being in use.
   // By setting the buzzer pin to HIGH, the buzzer will be effectively OFF:
-  digitalWrite(BUZZER_PIN, HIGH);
+  setBuzzerOff();
 }
 
 void playStartupTune() {
@@ -154,4 +154,11 @@ void playStartupTune2() {
   beep(NOTE_GS6, 180);
   beep(NOTE_F7, 180);
   beep(NOTE_CS7, 300);
+}
+
+void setBuzzerOff() {
+  // The buzzer we use (it's a MH-FMD) is active low.
+  // By setting the buzzer pin to HIGH, the buzzer will be effectively OFF:
+  digitalWrite(BUZZER_PIN, HIGH);
+
 }
