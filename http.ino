@@ -234,7 +234,7 @@ void getSettings() {
                       "</div>"
                       "<div class='control' id='rainbowSpeedSetting' style='display:none'>"
                         "<label>Speed (fast &harr; slow):</label>"
-                        "<input class='slider' name='rainbowSpeed' type='range' min='1' max='2000' value='" + String(config.rainbowSpeed) + "'>"
+                        "<input class='slider' name='rainbowSpeed' type='range' min='1' max='5000' value='" + String(config.rainbowSpeed) + "'>"
                       "</div>"
                       "<div class='control' id='lampColorHexSetting' style='display:none'>"
                         "<label>Lamp color:</label>"
